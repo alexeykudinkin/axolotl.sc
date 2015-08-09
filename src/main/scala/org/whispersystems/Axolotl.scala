@@ -10,7 +10,8 @@ import javax.crypto.{Cipher, KeyAgreement, Mac, SecretKeyFactory}
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import scala.collection.immutable.HashMap
-import scala.collection.mutable
+
+import scala.language.implicitConversions
 
 object Axolotl {
 
@@ -111,7 +112,7 @@ class Axolotl {
 
     implicit def intFromBytes (bs: Array[Byte]) : Int = {
       var i = 0
-      for (j <- 0 until bs.length) {
+      for (j <- bs.indices) {
         i <<= 8
         i |= bs(bs.length - j - 1) & 0xFF
       }
@@ -355,15 +356,13 @@ class Axolotl {
 
       state.role match {
 
-        case Alice => {
+        case Alice =>
           state.NHKs  = PBKDF2(state.RK, "0xDEADC0DE")
           state.CKs   = PBKDF2(state.RK, "0xDEADD00D")
-        }
 
-        case Bob => {
+        case Bob =>
           state.NHKs  = PBKDF2(state.RK, "0xDEADDEAD")
           state.CKs   = PBKDF2(state.RK, "0xDEAD10CC")
-        }
 
       }
 
@@ -547,7 +546,7 @@ class Axolotl {
       }
 
       // Restore skipped keys from the new ratchet-session
-      val keys = Storage.stageSkippedKeys(Np, 0, HKp, CKp);
+      val keys = Storage.stageSkippedKeys(Np, 0, HKp, CKp)
 
       decrypted.body = decrypt(body, keys.MK)
 
