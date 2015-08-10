@@ -1,9 +1,9 @@
-package org.whispersystems
+package org.whispersystems.util
 
 import java.security.interfaces.ECPublicKey
 import java.security.{KeyPair, SecureRandom}
+import javax.crypto.spec.{PBEKeySpec, SecretKeySpec}
 import javax.crypto.{KeyAgreement, Mac, SecretKeyFactory}
-import javax.crypto.spec.{SecretKeySpec, PBEKeySpec}
 
 object Util {
 

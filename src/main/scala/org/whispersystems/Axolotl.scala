@@ -7,6 +7,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
+import org.whispersystems.util.{Util, Log}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions

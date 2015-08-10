@@ -1,4 +1,4 @@
-package org.whispersystems
+package org.whispersystems.util
 
 import java.util.logging.{Level, Logger}
 

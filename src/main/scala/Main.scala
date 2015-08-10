@@ -1,6 +1,6 @@
-package org.whispersystems
+import org.whispersystems.Axolotl
 
-import scala.collection.immutable.{HashMap}
+import scala.collection.immutable.HashMap
 
 object Main {
 
