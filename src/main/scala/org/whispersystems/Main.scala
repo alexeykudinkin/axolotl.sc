@@ -1,27 +1,44 @@
 package org.whispersystems
 
+import scala.collection.immutable.{HashMap}
+
 object Main {
-  
+
   case class User(name: String) {
 
-    val channel = Axolotl(name)
-    var mbx = List[String]()
+    val proto = Axolotl()
 
-    def meet(other: User): Unit = {
-      channel.init(other.channel.introduce(), verify = false)
+    var channels  = new HashMap[User, proto.SecureChannel]
+    var mailbox   = new HashMap[User, List[String]]
+
+    private def establishChannelWith(otherParty: User): proto.SecureChannel = {
+      val c = proto.open()
+      channels = channels + (otherParty -> c)
+      c
+    }
+
+    def meet(otherParty: User) {
+      val own   = establishChannelWith(otherParty)
+      val other = otherParty.establishChannelWith(this)
+
+      own.handshake(other.introduce(), authenticate = false)
     }
 
     def replay() {
-      mbx.foreach(m => println(s"$name # " + m))
-      mbx = List[String]()
+      mailbox.foreach {
+        case (u, ms) => ms.foreach(m => println(s"${u.name}# ${m}"))
+      }
+      mailbox = new HashMap[User, List[String]]
+    }
+
+    def sendFrom(otherParty: User, encryptedLine: Array[Byte]) {
+      mailbox = mailbox +
+        (otherParty ->
+          (mailbox.getOrElse(otherParty, List()) :+ new String(channels(otherParty).decryptMessage(encryptedLine), "UTF-8")))
     }
     
-    def send(encryptedLine: Array[Byte]) {
-      mbx = mbx :+ new String(channel.decryptMessage(encryptedLine), "UTF-8")
-    }
-    
-    def encrypt(line: String): Array[Byte] =
-      channel.encryptMessage(line.getBytes("UTF-8"))
+    def encryptFor(otherParty: User, line: String): Array[Byte] =
+      channels(otherParty).encryptMessage(line.getBytes("UTF-8"))
   }
 
   val alice = User("Alice")
@@ -30,8 +47,7 @@ object Main {
   def main(args: Array[String]) {
     println("Hello World!")
 
-    alice .meet(bob)
-    bob   .meet(alice)
+    alice.meet(bob)
 
     // # Alice
     sendBobSecure("Ola, Bob!")
@@ -51,19 +67,14 @@ object Main {
   }
 
   def sendBobSecure(line: String) {
-    bob.send(alice.encrypt(line))
+    bob.sendFrom(alice, alice.encryptFor(bob, line))
   }
 
   def sendAliceSecure(line: String) {
-    alice.send(bob.encrypt(line))
+    alice.sendFrom(bob, bob.encryptFor(alice, line))
   }
 
   def replayBob() {
-//    bob.mbx.forEach(function (m) {
-//      console.log("# Alice: ", m);
-//    })
-//
-//    bob.mbx = null;
     bob.replay()
   }
 
