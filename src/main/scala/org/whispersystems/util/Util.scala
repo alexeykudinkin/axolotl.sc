@@ -7,7 +7,7 @@ import javax.crypto.{KeyAgreement, Mac, SecretKeyFactory}
 
 object Util {
 
-  // PBKDF2
+  // 256-bit PBKDF2 (RFC 2898)
   object PBKDF2 {
     val rounds  = 2000
     val bytes   = 256
@@ -20,7 +20,7 @@ object Util {
         .getEncoded
   }
 
-  // PRNG
+  // Secure PRNG
   object PRNG {
     private val source = new SecureRandom()
 
