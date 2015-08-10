@@ -22,10 +22,10 @@ object Axolotl {
 
   object Proto {
     // Handshake protocol
-    /* private */ class Handshake(
-      val identityKey: ECPublicKey,
-      val handshakeKey: ECPublicKey,
-      val ratchetKey: ECPublicKey) {}
+    class Handshake(
+      val identityKey   : ECPublicKey,
+      val handshakeKey  : ECPublicKey,
+      val ratchetKey    : ECPublicKey) {}
 
     // Staged Keys
     case class StagedKey(MK: Array[Byte], CK: Array[Byte]) {}
@@ -244,21 +244,21 @@ object Axolotl {
       }
 
       private def decide(otherParty: Handshake): Role = {
-        val ownW = state.DHI.getPublic.asInstanceOf[ECPublicKey].getW
-        val otherW = otherParty.identityKey.getW
+        val ownW    = state.DHI.getPublic.asInstanceOf[ECPublicKey].getW
+        val otherW  = otherParty.identityKey.getW
 
         if (ownW.getAffineX.compareTo(otherW.getAffineX) < 0) Alice else Bob
       }
 
       def encryptMessage(payload: Array[Byte]): Array[Byte] = {
-        // _DBG
+
         Log.v(">> [x] ENCRYPT: BEGIN >>>>>>>>>>>>>>>")
 
         var ratcheting = false
 
         // Ratchet
         if (state.RF) {
-          // _DBG
+
           Log.t(">> [x] RATCHET: BEGIN")
 
           ratcheting = true
@@ -270,38 +270,24 @@ object Axolotl {
 
           state.HKs = state.NHKs
 
-          // _DBG
           Log.t(">> [x] ROOT KEY PBKDF: BEGIN")
-
-          // _DBG
-          Log.t("RK -BEFORE:", state.RK.toString(16))
-          Log.t("DH", DH(state.DHRs, state.DHRr).toString(16))
-          Log.t("HMAC", HMAC(state.RK, DH(state.DHRs, state.DHRr)).toString(16))
 
           state.RK = PBKDF2(HMAC(state.RK, DH(state.DHRs, state.DHRr)), "0xDEADBEEF")
 
-          // _DBG
-          Log.t("RK -AFTER:", state.RK.toString(16))
-
-          // _DBG
           Log.t(">> [x] ROOT KEY PBKDF: END")
 
           state.role match {
-
             case Alice =>
-              state.NHKs = PBKDF2(state.RK, "0xDEADC0DE")
-              state.CKs = PBKDF2(state.RK, "0xDEADD00D")
-
+              state.NHKs  = PBKDF2(state.RK, "0xDEADC0DE")
+              state.CKs   = PBKDF2(state.RK, "0xDEADD00D")
             case Bob =>
-              state.NHKs = PBKDF2(state.RK, "0xDEADDEAD")
-              state.CKs = PBKDF2(state.RK, "0xDEAD10CC")
-
+              state.NHKs  = PBKDF2(state.RK, "0xDEADDEAD")
+              state.CKs   = PBKDF2(state.RK, "0xDEAD10CC")
           }
 
           state.RF = false
         }
 
-        // _DBG
         Log.t(">> [x] RATCHET: END")
 
         val header_key = state.HKs
@@ -319,17 +305,9 @@ object Axolotl {
 
         if (ratcheting) {
           val ratchet_key = marshallRatchetKey(state.DHRs)
-
-          // _DBG
-          Log.t(">> [x] RATCHET_KEY: ", ratchet_key.toString(16))
-
           header = emplace(header, 6, ratchet_key, 0, 100)
-
           header_len += ratchet_key.length
         }
-
-        // _DBG
-        Log.t(">> [x] RANDOM_STRING")
 
         val pad_len = HEADER_LENGTH - header_len
         val pad = PRNG.randomBytes(pad_len - 1)
@@ -340,30 +318,19 @@ object Axolotl {
 
         val body = encrypt(payload, message_key)
 
-        // _DBG
-        //log.t(" HEADER: ",   encrypted.header);
-        Log.t(" BODY: ", body.toString(16))
-        Log.t(" PADDING: %d".format(pad_len))
-
         state.Ns += 1
         state.CKs = HMAC(state.CKs, "1")
 
-        // _DBG
-        Log.v(">> ROLE[ " + state.role + " ], RF[ " + state.RF + " ]")
-
-        // _DBG
         Log.v(">> [x] ENCRYPT: END >>>>>>>>>>>>>>>")
 
         header ++ body
       }
 
       def decryptMessage(bytes: Array[Byte]): Array[Byte] = {
-        // _DBG
         Log.v(">> [x] DECRYPT: BEGIN >>>>>>>>>>>>>>>")
 
         val padding = bytes.slice(105, 106)(0); // < 106
 
-        // _DBG
         Log.t(">> [x] PADDING: ", padding)
 
         val header = bytes.slice(0, 106 - padding)
@@ -383,8 +350,8 @@ object Axolotl {
         // Probe current header-key
         decrypted.header = header; //self._decrypt(header, self.state.HKr);
 
-        var DHRp: ECPublicKey = null // Purported DHR
-        var Np: Int = -1 // Purported message number
+        var DHRp  : ECPublicKey = null  // Purported DHR
+        var Np    : Int = -1            // Purported message number
 
         Np = header.slice(0, 3)
 
@@ -408,9 +375,6 @@ object Axolotl {
           state.CKr = next.CK
 
         } else {
-
-          // _DBG
-          Log.t(" >> [x] PURPORTED RATCHET KEY: ", DHRp.getEncoded.toString(16))
 
           // Probe next header-key
           //decrypted.header = self._decrypt(header, self.state.NHKr);
@@ -436,35 +400,27 @@ object Axolotl {
           // Stage already skipped message keys
           Storage.stageSkippedKeys(PNp, state.Nr, state.HKr, state.CKr)
 
-          // _DBG
           Log.t(">> [x] RATCHET: BEGIN")
           Log.t(">> [x] ROOT KEY PBKDF: BEGIN")
 
-          // _DBG
-          Log.t("RK -BEFORE:", state.RK)
-          Log.t("DH", DH(state.DHRs, DHRp).toString(16))
-          Log.t("HMAC", HMAC(state.RK, DH(state.DHRs, DHRp).toString(16)))
-
           val RKp = PBKDF2(HMAC(state.RK, DH(state.DHRs, DHRp).toString(16)), "0xDEADBEEF")
 
-          // _DBG
-          Log.t("RK -AFTER:", RKp)
           Log.t(">> [x] ROOT KEY PBKDF: END")
           Log.t(">> [x] RATCHET: END")
 
           val HKp = state.NHKr
 
-          var NHKp: Array[Byte] = null
-          var CKp: Array[Byte] = null
+          var NHKp  : Array[Byte] = null
+          var CKp   : Array[Byte] = null
 
           state.role match {
             case Role.Alice =>
-              NHKp = PBKDF2(RKp, "0xDEADDEAD")
-              CKp = PBKDF2(RKp, "0xDEAD10CC")
+              NHKp  = PBKDF2(RKp, "0xDEADDEAD")
+              CKp   = PBKDF2(RKp, "0xDEAD10CC")
 
             case Role.Bob =>
-              NHKp = PBKDF2(RKp, "0xDEADC0DE")
-              CKp = PBKDF2(RKp, "0xDEADD00D")
+              NHKp  = PBKDF2(RKp, "0xDEADC0DE")
+              CKp   = PBKDF2(RKp, "0xDEADD00D")
 
             case _ =>
               throw new SecurityException("Eve has been catched right away!")
@@ -475,12 +431,12 @@ object Axolotl {
 
           decrypted.body = decrypt(body, keys.MK)
 
-          state.CKr = keys.CK
+          state.CKr   = keys.CK
 
-          state.RK = RKp
-          state.HKr = HKp
-          state.NHKr = NHKp
-          state.DHRr = DHRp
+          state.RK    = RKp
+          state.HKr   = HKp
+          state.NHKr  = NHKp
+          state.DHRr  = DHRp
 
           state.RF = true
         }
